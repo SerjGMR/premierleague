@@ -90,7 +90,7 @@
     font-variant-numeric: tabular-nums;
   }
 
-  tbody tr:nth-child(4n+1), tbody tr:nth-child(4n+2) { background: var(--bg-row-alt); }
+  tbody tr:nth-child(even) { background: var(--bg-row-alt); }
 
   .rank {
     color: var(--text-dim);
@@ -146,15 +146,6 @@
     font-size: 14px;
   }
 
-  .book-detail { display: none; padding: 12px; }
-  .book-detail.open { display: block; }
-  .book-cols { display: flex; gap: 32px; font-size: 13px; }
-  .book-head { color: var(--text-dim); margin-bottom: 6px; }
-  .book-level { display: flex; justify-content: space-between; gap: 16px; padding: 2px 0; }
-  .book-loading { color: var(--text-dim); font-size: 13px; }
-  .book-error { color: var(--under); font-size: 13px; }
-  .book-empty { color: var(--text-dim); font-size: 13px; }
-
   @media (max-width: 640px) {
     h1 { font-size: 26px; }
     .market, .dir { display: none; }
@@ -181,8 +172,8 @@
   // --- CONFIG ---
   const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQH4hB9881ozEMoyGlbP4iujYGiejtuiJ5HZhd7AZkhRAa16A5XEWZLXUBf9Vy-QWA_dI-Q1Zejm6QG/pub?gid=1114700259&single=true&output=csv";
 
-  // Column layout, matching the sheet: Team, Market, Chance, Bid, BidVol, Ask, AskVol, Spread, Inside/Outside, Edge, Direction, Slug
-  const COL = { team: 0, market: 1, chance: 2, bid: 3, bidVol: 4, ask: 5, askVol: 6, edge: 9, direction: 10, slug: 11 };
+  // Column layout, matching the sheet: Team, Market, Chance, Bid, BidVol, Ask, AskVol, Spread, Inside/Outside, Edge, Direction
+  const COL = { team: 0, market: 1, chance: 2, bid: 3, bidVol: 4, ask: 5, askVol: 6, edge: 9, direction: 10 };
 
   function clampChance(pct) {
     if (pct >= 100) return 99.9;
@@ -215,7 +206,6 @@
           askVol: parseFloat(r[COL.askVol]),
           edge: parseFloat(r[COL.edge]),
           direction: (r[COL.direction] || "").trim(),
-          slug: (r[COL.slug] || "").trim(),
         }))
         .filter(r => r.team && !isNaN(r.edge))
         .sort((a, b) => b.edge - a.edge)
@@ -231,7 +221,7 @@
 
   function renderTable(rows) {
     const body = rows.map((r, i) => `
-      <tr onclick="toggleBook(${i}, '${r.slug}')" style="cursor:pointer">
+      <tr>
         <td class="rank">${i + 1}</td>
         <td class="team">${escapeHtml(r.team)}</td>
         <td class="market">${escapeHtml(r.market)}</td>
@@ -241,7 +231,6 @@
         <td class="num bid">${r.bid.toFixed(2)}<span class="vol">$${formatVol(r.bidVol)}</span></td>
         <td class="num ask">${r.ask.toFixed(2)}<span class="vol">$${formatVol(r.askVol)}</span></td>
       </tr>
-      <tr><td colspan="8" style="padding:0;border:none;"><div class="book-detail" id="book-${i}"></div></td></tr>
     `).join('');
 
     document.getElementById('content').innerHTML = `
@@ -261,38 +250,6 @@
         <tbody>${body}</tbody>
       </table>
     `;
-  }
-
-  async function fetchFullBook(slug) {
-    const resp = await fetch(`https://gateway.polymarket.us/v1/markets/${slug}/book`);
-    if (!resp.ok) throw new Error("HTTP " + resp.status);
-    const data = await resp.json();
-    return data.marketData;
-  }
-
-  function renderBookLevels(levels, label) {
-    if (!levels || !levels.length) return `<div class="book-empty">No ${label} levels</div>`;
-    return levels.slice(0, 5).map(l =>
-      `<div class="book-level"><span>${parseFloat(l.px.value).toFixed(2)}</span><span>${parseFloat(l.qty).toFixed(0)} shares</span></div>`
-    ).join('');
-  }
-
-  async function toggleBook(rowId, slug) {
-    const el = document.getElementById(`book-${rowId}`);
-    if (el.classList.contains('open')) { el.classList.remove('open'); el.innerHTML = ''; return; }
-
-    el.classList.add('open');
-    el.innerHTML = `<div class="book-loading">Loading order book…</div>`;
-    try {
-      const book = await fetchFullBook(slug);
-      el.innerHTML = `
-        <div class="book-cols">
-          <div><div class="book-head">Bids</div>${renderBookLevels(book.bids, "bid")}</div>
-          <div><div class="book-head">Asks</div>${renderBookLevels(book.offers, "ask")}</div>
-        </div>`;
-    } catch (err) {
-      el.innerHTML = `<div class="book-error">Couldn't load book directly — likely blocked by CORS. Check the browser console (F12) for the real error.<br>${err.message}</div>`;
-    }
   }
 
   function escapeHtml(str) {
