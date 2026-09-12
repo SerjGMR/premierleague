@@ -1,1 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Edge Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root {
+    --bg: #10151A;
+    --bg-raised: #161C22;
+    --bg-row-alt: #131820;
+    --text: #E9E4DC;
+    --text-dim: #8B9299;
+    --accent: #D4A24C;
+    --over: #4F9E82;
+    --under: #B5675A;
+    --border: #232B31;
+  }
 
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 56px 24px 80px;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+    margin-bottom: 32px;
+  }
+
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 34px;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  .sub {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-top: 4px;
+  }
+
+  .updated {
+    color: var(--text-dim);
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  thead th {
+    text-align: left;
+    font-weight: 500;
+    color: var(--text-dim);
+    font-size: 12.5px;
+    padding: 0 12px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  th.num, td.num { text-align: right; }
+
+  tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+  }
+
+  tbody tr:nth-child(even) { background: var(--bg-row-alt); }
+
+  .rank {
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+    width: 32px;
+  }
+
+  .team { font-weight: 500; }
+
+  .market {
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+
+  .edge {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 15px;
+  }
+
+  .dir {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+  }
+
+  .dir::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .dir.over { color: var(--over); }
+  .dir.over::before { background: var(--over); }
+  .dir.under { color: var(--under); }
+  .dir.under::before { background: var(--under); }
+
+  .state {
+    color: var(--text-dim);
+    padding: 60px 0;
+    text-align: center;
+    font-size: 14px;
+  }
+
+  footer {
+    margin-top: 40px;
+    color: var(--text-dim);
+    font-size: 12.5px;
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+  }
+
+  @media (max-width: 640px) {
+    h1 { font-size: 26px; }
+    .market, .dir { display: none; }
+    thead th:nth-child(3), thead th:nth-child(6) { display: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Edge Board</h1>
+        <div class="sub">Top 100 Premier League contracts by model disagreement</div>
+      </div>
+      <div class="updated" id="updated">loading…</div>
+    </header>
+
+    <div id="content">
+      <div class="state">Loading current prices…</div>
+    </div>
+
+    <footer>
+      Model chance is this site's own estimate. Edge is the gap between that estimate and the current market price. This is not financial advice.
+    </footer>
+  </div>
+
+<script>
+  // --- CONFIG ---
+  const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQH4hB9881ozEMoyGlbP4iujYGiejtuiJ5HZhd7AZkhRAa16A5XEWZLXUBf9Vy-QWA_dI-Q1Zejm6QG/pub?gid=1114700259&single=true&output=csv";
+
+  // Column layout, matching the sheet: Team, Market, Chance, Bid, BidVol, Ask, AskVol, Spread, Inside/Outside, Edge, Direction
+  const COL = { team: 0, market: 1, chance: 2, bid: 3, ask: 5, edge: 9, direction: 10 };
+
+  async function loadData() {
+    const content = document.getElementById('content');
+    try {
+      const res = await fetch(SHEET_CSV_URL, { cache: "no-store" });
+      if (!res.ok) throw new Error("Sheet fetch failed: " + res.status);
+      const csvText = await res.text();
+      const parsed = Papa.parse(csvText.trim(), { skipEmptyLines: true });
+      const rows = parsed.data.slice(1);
+
+      const cleaned = rows
+        .map(r => ({
+          team: r[COL.team],
+          market: r[COL.market],
+          chance: parseFloat(r[COL.chance]),
+          bid: parseFloat(r[COL.bid]),
+          ask: parseFloat(r[COL.ask]),
+          edge: parseFloat(r[COL.edge]),
+          direction: (r[COL.direction] || "").trim(),
+        }))
+        .filter(r => r.team && !isNaN(r.edge))
+        .sort((a, b) => b.edge - a.edge)
+        .slice(0, 100);
+
+      renderTable(cleaned);
+      document.getElementById('updated').textContent =
+        "Updated " + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (err) {
+      content.innerHTML = `<div class="state">Couldn't load data. Check that SHEET_CSV_URL is set and the sheet is published to web.<br><br>${err.message}</div>`;
+    }
+  }
+
+  function renderTable(rows) {
+    const body = rows.map((r, i) => `
+      <tr>
+        <td class="rank">${i + 1}</td>
+        <td class="team">${escapeHtml(r.team)}</td>
+        <td class="market">${escapeHtml(r.market)}</td>
+        <td class="num edge">${(r.edge * 100).toFixed(1)}%</td>
+        <td><span class="dir ${r.direction.toLowerCase()}">${escapeHtml(r.direction)}</span></td>
+        <td class="num">${(r.chance).toFixed(1)}%</td>
+        <td class="num">${r.bid.toFixed(2)}</td>
+        <td class="num">${r.ask.toFixed(2)}</td>
+      </tr>
+    `).join('');
+
+    document.getElementById('content').innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th>Team</th>
+            <th>Market</th>
+            <th class="num">Edge</th>
+            <th>Direction</th>
+            <th class="num">Model chance</th>
+            <th class="num">Bid</th>
+            <th class="num">Ask</th>
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+      </table>
+    `;
+  }
+
+  function escapeHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  loadData();
+  setInterval(loadData, 5 * 60 * 1000);
+</script>
+</body>
+</html>
