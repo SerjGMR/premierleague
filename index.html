@@ -119,16 +119,35 @@
     display:flex;
     gap:10px;
     padding:14px 24px;
+    flex-wrap:wrap;
+    align-items:center;
   }
-  .controls input{
+  .controls input, .controls select{
     background:#141416;
     border:1px solid var(--border);
     color:var(--text);
     padding:8px 12px;
     border-radius:8px;
     font-size:14px;
-    min-width:220px;
   }
+  .controls input{ min-width:220px; }
+  .controls label{
+    color:var(--muted);
+    font-size:13px;
+  }
+  .dir-toggle{
+    background:#141416;
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:8px 12px;
+    border-radius:8px;
+    font-size:14px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .dir-toggle:hover{ border-color:#3a3a40; }
 
   .loading,.error{
     padding:40px 24px;
@@ -148,6 +167,16 @@
 
 <div class="controls">
   <input type="text" id="search" placeholder="Filter by team or contract…">
+  <label for="sortMetric">Sort by</label>
+  <select id="sortMetric">
+    <option value="EV">Expected Value</option>
+    <option value="To Win">Win Amount</option>
+    <option value="Gain/Loss">$ Gain/Loss</option>
+    <option value="GainPct">% Gain/Loss</option>
+  </select>
+  <button class="dir-toggle" id="dirToggle" type="button" data-dir="-1">
+    <span id="dirArrow">▼</span> <span id="dirLabel">High to Low</span>
+  </button>
 </div>
 
 <div class="header-row" id="headerRow">
@@ -253,15 +282,26 @@ function applyFilter(rows) {
   );
 }
 
+// Some sort keys are computed rather than raw sheet columns.
+function sortValue(row, key) {
+  if (key === "GainPct") {
+    const cost = toNumber(row["Cost"]);
+    const gl = toNumber(row["Gain/Loss"]);
+    return (cost && !isNaN(gl)) ? (gl / cost) * 100 : NaN;
+  }
+  return toNumber(row[key]);
+}
+
 function renderRows(rows) {
   const body = document.getElementById("body");
 
   let sorted = rows.slice();
   if (sortKey) {
     sorted.sort((a, b) => {
-      const av = toNumber(a[sortKey]);
-      const bv = toNumber(b[sortKey]);
+      const av = sortValue(a, sortKey);
+      const bv = sortValue(b, sortKey);
       if (!isNaN(av) && !isNaN(bv)) return (av - bv) * sortDir;
+      // text column (e.g. Market/Team) — alphabetical fallback
       return String(a[sortKey] || "").localeCompare(String(b[sortKey] || "")) * sortDir;
     });
   }
@@ -336,14 +376,47 @@ async function load() {
       renderRows(applyFilter(currentRows));
     });
 
+    // Header clicks sort by that column (ascending/descending toggle).
     document.querySelectorAll(".header-row .col").forEach(col => {
       col.addEventListener("click", () => {
         const key = col.dataset.key;
         if (sortKey === key) sortDir *= -1;
         else { sortKey = key; sortDir = 1; }
+        syncSortControls();
         renderRows(applyFilter(currentRows));
       });
     });
+
+    // "Sort by" dropdown: Expected Value / Win Amount / $ Gain-Loss / % Gain-Loss
+    const sortMetric = document.getElementById("sortMetric");
+    sortMetric.addEventListener("change", () => {
+      sortKey = sortMetric.value;
+      renderRows(applyFilter(currentRows));
+    });
+
+    // High-to-low / low-to-high toggle, applies to whichever sort is active
+    const dirToggle = document.getElementById("dirToggle");
+    dirToggle.addEventListener("click", () => {
+      sortDir *= -1;
+      updateDirToggleLabel();
+      renderRows(applyFilter(currentRows));
+    });
+
+    function updateDirToggleLabel() {
+      const arrow = document.getElementById("dirArrow");
+      const label = document.getElementById("dirLabel");
+      if (sortDir === -1) { arrow.textContent = "▼"; label.textContent = "High to Low"; }
+      else { arrow.textContent = "▲"; label.textContent = "Low to High"; }
+    }
+
+    // Keep the dropdown in sync when a header click picks one of its metrics
+    function syncSortControls() {
+      const options = Array.from(sortMetric.options).map(o => o.value);
+      if (options.includes(sortKey)) sortMetric.value = sortKey;
+      updateDirToggleLabel();
+    }
+
+    updateDirToggleLabel();
   } catch (err) {
     body.innerHTML = `<div class="error">Couldn't load the sheet: ${err.message}.
       Make sure it's published to the web as CSV (File → Share → Publish to web).</div>`;
