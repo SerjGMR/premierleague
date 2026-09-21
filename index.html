@@ -343,6 +343,11 @@ function fmtPct(n, decimals = 1) {
   return `${n.toFixed(decimals)}%`;
 }
 
+function fmtShares(n) {
+  if (isNaN(n)) return "—";
+  return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
 function initials(name) {
   return name.split(/\s+/).map(w => w[0]).join("").slice(0, 3).toUpperCase();
 }
@@ -451,7 +456,7 @@ const TABS = {
     headerCols: [
       { key: "Team",       label: "Market",                       cls: "col-market" },
       { key: "EntryVal",   label: "Current Polymarket Ask/Bid",   cls: "col-mid" },
-      { key: "VolumeVal",  label: "Volume",                       cls: "col-mid" },
+      { key: "VolumeVal",  label: "Volume in Shares",             cls: "col-mid" },
       { key: "ChanceVal",  label: "Model Chance",                 cls: "col-mid" },
       { key: "EdgeVal",    label: "Edge %",                       cls: "col-mid" },
     ],
@@ -459,7 +464,7 @@ const TABS = {
       { value: "EdgeVal",   label: "Edge %" },
       { value: "ChanceVal", label: "Model Chance" },
       { value: "EntryVal",  label: "Entry Price" },
-      { value: "VolumeVal", label: "Volume" },
+      { value: "VolumeVal", label: "Volume in Shares" },
     ],
     defaultSort: { key: "EdgeVal", dir: -1 },
     // This sheet's columns have no header names for E/I/J/K, so we read by
@@ -507,7 +512,7 @@ const TABS = {
           </div>
         </div>
         <div class="col col-mid" data-label="Current Polymarket Ask/Bid"><span class="val">${fmtCents(r.EntryVal)}</span></div>
-        <div class="col col-mid" data-label="Volume"><span class="val">${fmtMoney(r.VolumeVal)}</span></div>
+        <div class="col col-mid" data-label="Volume in Shares"><span class="val">${fmtShares(r.VolumeVal)}</span></div>
         <div class="col col-mid" data-label="Model Chance"><span class="val">${fmtPct(r.ChanceVal)}</span></div>
         <div class="col col-mid" data-label="Edge %"><span class="val ${edgeUp ? 'pos-text' : 'neg-text'}">${fmtPct(r.EdgeVal)}</span></div>
       `;
@@ -572,8 +577,8 @@ const TABS = {
    State + shared render/sort/filter engine
    ============================================================ */
 let activeTab = "positions";
-let cache = {};        // { positions: [...], edge: [...], probabilities: [...] }
-let sortState = {};     // { positions: {key,dir}, edge: {key,dir}, probabilities: {key,dir} }
+let cache = {};        // { positions: [...], edge: [...] }
+let sortState = {};     // { positions: {key,dir}, edge: {key,dir} }
 let refreshTimer = null;
 
 Object.keys(TABS).forEach(t => { sortState[t] = { ...TABS[t].defaultSort }; });
