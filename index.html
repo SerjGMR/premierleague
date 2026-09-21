@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>My Positions</title>
+<title>Polymarket Premier League Trading Model</title>
 <style>
   :root{
     --bg:#0a0a0c;
@@ -161,12 +161,31 @@
     text-align:center;
   }
   .error{ color:var(--red); }
+
+  .page-title{
+    padding:24px 24px 0 24px;
+  }
+  .page-title h1{
+    margin:0;
+    font-size:20px;
+    font-weight:700;
+  }
+  .page-title .byline{
+    margin-top:4px;
+    font-size:13px;
+    color:var(--muted);
+  }
 </style>
 </head>
 <body>
 
+<div class="page-title">
+  <h1>Polymarket Premier League Trading Model</h1>
+  <div class="byline">by Serj Petrossian</div>
+</div>
+
 <div class="tabs">
-  <div class="tab active">Positions</div>
+  <div class="tab active">My Positions</div>
   <div class="tab">Orders</div>
   <div class="tab">History</div>
 </div>
@@ -207,7 +226,7 @@ const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEDZn3nCmmlg-m
 // Colors cycled for the fallback team-initial avatars (used if no logo file is found)
 const AVATAR_COLORS = ["#5b6ee1","#e15b8f","#5be1a8","#e1a75b","#8f5be1","#e15b5b","#5bc4e1","#a3e15b"];
 
-// Map each sheet "Team" value to a logo file in /assets/logos/.
+// Map each sheet "Team" value to a logo file (sitting at the repo root).
 // Add/edit entries here as you drop in image files. Any team not listed
 // (or whose image 404s) automatically falls back to the initials avatar.
 const LOGO_MAP = {
