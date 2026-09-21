@@ -177,3 +177,289 @@
   <select id="sortMetric">
     <option value="EV">Expected Value</option>
     <option value="To Win">Win Amount</option>
+    <option value="Gain/Loss">$ Gain/Loss</option>
+    <option value="GainPct">% Gain/Loss</option>
+  </select>
+  <button class="dir-toggle" id="dirToggle" type="button" data-dir="-1">
+    <span id="dirArrow">▼</span> <span id="dirLabel">High to Low</span>
+  </button>
+</div>
+
+<div class="header-row" id="headerRow">
+  <div class="col col-market" data-key="Team">Market</div>
+  <div class="col col-entry" data-key="Average Price">Entry</div>
+  <div class="col col-chance" data-key="Chance">Model Chance</div>
+  <div class="col col-cost" data-key="Cost">Cost</div>
+  <div class="col col-towin" data-key="To Win">To Win</div>
+  <div class="col col-ev" data-key="EV">Expected Value</div>
+</div>
+
+<div id="body">
+  <div class="loading">Loading…</div>
+</div>
+
+<script>
+/* ============================================================
+   CONFIG
+   ============================================================ */
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEDZn3nCmmlg-m0mkBlMX2VZ2At99ZEPa-s88XTuQGnhJqBRq0-ETFVEK6FLXdcH8uPCHI6HAgweeL/pub?gid=437407389&single=true&output=csv";
+
+// Colors cycled for the fallback team-initial avatars (used if no logo file is found)
+const AVATAR_COLORS = ["#5b6ee1","#e15b8f","#5be1a8","#e1a75b","#8f5be1","#e15b5b","#5bc4e1","#a3e15b"];
+
+// Map each sheet "Team" value to a logo file in /assets/logos/.
+// Add/edit entries here as you drop in image files. Any team not listed
+// (or whose image 404s) automatically falls back to the initials avatar.
+const LOGO_MAP = {
+  "Man City":          "assets/logos/manchester-city.football-logos.cc.png",
+  "Chelsea":           "assets/logos/chelsea.football-logos.cc.png",
+  "Hull":              "assets/logos/hull-city.football-logos.cc.png",
+  "Brighton":          "assets/logos/brighton.football-logos.cc.png",
+  "Sunderland":        "assets/logos/sunderland.football-logos.cc.png",
+  "Liverpool":         "assets/logos/liverpool.football-logos.cc.png",
+  "Tottenham":         "assets/logos/tottenham.football-logos.cc.png",
+  "Man Utd":           "assets/logos/manchester-united.football-logos.cc.png",
+  "Crystal Palace":    "assets/logos/crystal-palace.football-logos.cc.png",
+  "Brentford":         "assets/logos/brentford.football-logos.cc.png",
+  "Arsenal":           "assets/logos/arsenal.football-logos.cc.png",
+  "Coventry":          "assets/logos/coventry-city.football-logos.cc.png",
+  "Fulham":            "assets/logos/fulham.football-logos.cc.png",
+  "Nottingham Forest": "assets/logos/nottingham-forest.football-logos.cc.png",
+  "Leeds":             "assets/logos/leeds-united.football-logos.cc.png",
+  "Newcastle":         "assets/logos/newcastle.football-logos.cc.png",
+  "Everton":           "assets/logos/everton.football-logos.cc.png",
+  "Bournemouth":       "assets/logos/bournemouth.football-logos.cc.png",
+  "Aston Villa":       "assets/logos/aston-villa.football-logos.cc.png",
+  "Ipswich":           "assets/logos/ipswich.football-logos.cc.png",
+};
+
+/* ============================================================
+   CSV parsing
+   ============================================================ */
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = "", inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i], next = text[i + 1];
+    if (inQuotes) {
+      if (c === '"' && next === '"') { field += '"'; i++; }
+      else if (c === '"') { inQuotes = false; }
+      else { field += c; }
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') { row.push(field); field = ""; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && next === '\n') i++;
+        row.push(field); field = "";
+        if (row.length > 1 || row[0] !== "") rows.push(row);
+        row = [];
+      } else { field += c; }
+    }
+  }
+  if (field !== "" || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+function toNumber(val) {
+  if (val === undefined || val === null) return NaN;
+  const cleaned = String(val).replace(/[$,%]/g, "").trim();
+  if (cleaned === "" || cleaned === "-") return NaN;
+  return parseFloat(cleaned);
+}
+
+function fmtMoney(n) {
+  if (isNaN(n)) return "—";
+  const sign = n < 0 ? "-" : "";
+  return `${sign}$${Math.abs(n).toFixed(2)}`;
+}
+
+function fmtCents(n) {
+  if (isNaN(n)) return "—";
+  return `${(n * 100).toFixed(2)}¢`;
+}
+
+function fmtPct(n) {
+  if (isNaN(n)) return "—";
+  return `${n.toFixed(1)}%`;
+}
+
+function initials(name) {
+  return name.split(/\s+/).map(w => w[0]).join("").slice(0, 3).toUpperCase();
+}
+
+function colorFor(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function contractPhrase(contract) {
+  if (/^top\s*\d+/i.test(contract)) return `${contract} Finish`;
+  return contract;
+}
+
+/* ============================================================
+   Render
+   ============================================================ */
+let currentRows = [];
+let sortKey = "EV";
+let sortDir = -1;
+
+function applyFilter(rows) {
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  if (!q) return rows;
+  return rows.filter(r =>
+    (r["Team"] || "").toLowerCase().includes(q) ||
+    (r["Contract"] || "").toLowerCase().includes(q)
+  );
+}
+
+// Some sort keys are computed rather than raw sheet columns.
+function sortValue(row, key) {
+  if (key === "GainPct") {
+    const cost = toNumber(row["Cost"]);
+    const gl = toNumber(row["Gain/Loss"]);
+    return (cost && !isNaN(gl)) ? (gl / cost) * 100 : NaN;
+  }
+  return toNumber(row[key]);
+}
+
+function renderRows(rows) {
+  const body = document.getElementById("body");
+
+  let sorted = rows.slice();
+  if (sortKey) {
+    sorted.sort((a, b) => {
+      const av = sortValue(a, sortKey);
+      const bv = sortValue(b, sortKey);
+      if (!isNaN(av) && !isNaN(bv)) return (av - bv) * sortDir;
+      // text column (e.g. Market/Team) — alphabetical fallback
+      return String(a[sortKey] || "").localeCompare(String(b[sortKey] || "")) * sortDir;
+    });
+  }
+
+  if (sorted.length === 0) {
+    body.innerHTML = `<div class="loading">No positions match.</div>`;
+    return;
+  }
+
+  body.innerHTML = "";
+  sorted.forEach(r => {
+    const team = r["Team"] || "";
+    const contract = r["Contract"] || "";
+    const direction = (r["Direction"] || "").trim();
+    const cost = toNumber(r["Cost"]);
+    const toWin = toNumber(r["To Win"]);
+    const ev = toNumber(r["EV"]);
+    const gl = toNumber(r["Gain/Loss"]);
+    const chance = toNumber(r["Chance"]);
+    const avgPrice = toNumber(r["Average Price"]);
+    const glPct = (cost && !isNaN(gl)) ? (gl / cost) * 100 : NaN;
+    const isUp = gl >= 0;
+
+    const row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML = `
+      <div class="col col-market">
+        ${LOGO_MAP[team]
+          ? `<div class="avatar"><img src="${LOGO_MAP[team]}" alt="${team}"
+               onerror="this.parentElement.outerHTML='<div class=\\'avatar\\' style=\\'background:${colorFor(team)}\\'>${initials(team)}</div>'"></div>`
+          : `<div class="avatar" style="background:${colorFor(team)}">${initials(team)}</div>`
+        }
+        <div class="market-info">
+          <div class="market-name">
+            ${team}
+            ${direction.toLowerCase() === "no" ? `<span class="direction-dot">•</span><span class="direction-tag">No</span>` : ""}
+          </div>
+          <div class="market-sub">English Premier League &nbsp;${contractPhrase(contract)}</div>
+        </div>
+      </div>
+      <div class="col col-entry"><span class="val">${fmtCents(avgPrice)}</span></div>
+      <div class="col col-chance"><span class="val">${fmtPct(chance)}</span></div>
+      <div class="col col-cost"><span class="val">${fmtMoney(cost)}</span></div>
+      <div class="col col-towin"><span class="val">${fmtMoney(toWin)}</span></div>
+      <div class="col col-ev">
+        <div class="ev-wrap">
+          <span class="ev-main">${fmtMoney(ev)}</span>
+          <span class="ev-delta ${isUp ? 'up' : 'down'}">
+            ${isUp ? '▲' : '▼'} ${fmtMoney(Math.abs(gl))} (${isNaN(glPct) ? '—' : Math.abs(glPct).toFixed(0) + '%'})
+          </span>
+        </div>
+      </div>
+    `;
+    body.appendChild(row);
+  });
+}
+
+async function load() {
+  const body = document.getElementById("body");
+  try {
+    const res = await fetch(CSV_URL, { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    const table = parseCSV(text).filter(r => r.some(c => c.trim() !== ""));
+    const headers = table[0].map(h => h.trim());
+    const rows = table.slice(1).map(r => {
+      const obj = {};
+      headers.forEach((h, i) => obj[h] = (r[i] || "").trim());
+      return obj;
+    });
+
+    currentRows = rows;
+    renderRows(applyFilter(rows));
+
+    document.getElementById("search").addEventListener("input", () => {
+      renderRows(applyFilter(currentRows));
+    });
+
+    // Header clicks sort by that column (ascending/descending toggle).
+    document.querySelectorAll(".header-row .col").forEach(col => {
+      col.addEventListener("click", () => {
+        const key = col.dataset.key;
+        if (sortKey === key) sortDir *= -1;
+        else { sortKey = key; sortDir = 1; }
+        syncSortControls();
+        renderRows(applyFilter(currentRows));
+      });
+    });
+
+    // "Sort by" dropdown: Expected Value / Win Amount / $ Gain-Loss / % Gain-Loss
+    const sortMetric = document.getElementById("sortMetric");
+    sortMetric.addEventListener("change", () => {
+      sortKey = sortMetric.value;
+      renderRows(applyFilter(currentRows));
+    });
+
+    // High-to-low / low-to-high toggle, applies to whichever sort is active
+    const dirToggle = document.getElementById("dirToggle");
+    dirToggle.addEventListener("click", () => {
+      sortDir *= -1;
+      updateDirToggleLabel();
+      renderRows(applyFilter(currentRows));
+    });
+
+    function updateDirToggleLabel() {
+      const arrow = document.getElementById("dirArrow");
+      const label = document.getElementById("dirLabel");
+      if (sortDir === -1) { arrow.textContent = "▼"; label.textContent = "High to Low"; }
+      else { arrow.textContent = "▲"; label.textContent = "Low to High"; }
+    }
+
+    // Keep the dropdown in sync when a header click picks one of its metrics
+    function syncSortControls() {
+      const options = Array.from(sortMetric.options).map(o => o.value);
+      if (options.includes(sortKey)) sortMetric.value = sortKey;
+      updateDirToggleLabel();
+    }
+
+    updateDirToggleLabel();
+  } catch (err) {
+    body.innerHTML = `<div class="error">Couldn't load the sheet: ${err.message}.
+      Make sure it's published to the web as CSV (File → Share → Publish to web).</div>`;
+  }
+}
+
+load();
+</script>
+</body>
+</html>
