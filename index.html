@@ -3,263 +3,354 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Edge Board</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<title>My Positions</title>
 <style>
-  :root {
-    --bg: #10151A;
-    --bg-raised: #161C22;
-    --bg-row-alt: #131820;
-    --text: #E9E4DC;
-    --text-dim: #8B9299;
-    --accent: #D4A24C;
-    --over: #4F9E82;
-    --under: #B5675A;
-    --border: #232B31;
+  :root{
+    --bg:#0a0a0c;
+    --border:#232327;
+    --text:#f5f5f6;
+    --muted:#8b8b92;
+    --green:#16c784;
+    --red:#ea3943;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text);
   }
 
-  * { box-sizing: border-box; }
-
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'IBM Plex Sans', sans-serif;
-    -webkit-font-smoothing: antialiased;
+  /* ---- top tabs ---- */
+  .tabs{
+    display:flex;
+    gap:32px;
+    padding:22px 24px 0 24px;
+    border-bottom:1px solid var(--border);
+  }
+  .tab{
+    padding-bottom:16px;
+    font-size:16px;
+    font-weight:600;
+    color:var(--muted);
+    cursor:default;
+  }
+  .tab.active{
+    color:var(--text);
+    border-bottom:2px solid var(--text);
   }
 
-  .wrap {
-    max-width: 920px;
-    margin: 0 auto;
-    padding: 56px 24px 80px;
+  /* ---- header row ---- */
+  .header-row{
+    display:flex;
+    align-items:center;
+    padding:18px 24px;
+    border-bottom:1px solid var(--border);
+    color:var(--muted);
+    font-size:14px;
+  }
+  .header-row .col{
+    cursor:pointer;
+    user-select:none;
+  }
+  .header-row .col:hover{ color:var(--text); }
+
+  /* ---- column widths (shared by header + rows) ---- */
+  .col-market{ flex:2.6; text-align:left; display:flex; align-items:center; }
+  .col-entry{ flex:0.9; text-align:right; }
+  .col-chance{ flex:1; text-align:right; }
+  .col-cost{ flex:1; text-align:right; }
+  .col-towin{ flex:1; text-align:right; }
+  .col-ev{ flex:1.7; text-align:right; }
+
+  /* ---- data rows ---- */
+  .row{
+    display:flex;
+    align-items:center;
+    padding:16px 24px;
+    border-bottom:1px solid var(--border);
+  }
+  .row:hover{ background:#111114; }
+
+  .avatar{
+    width:44px;
+    height:44px;
+    border-radius:50%;
+    flex:0 0 44px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:700;
+    font-size:13px;
+    color:#fff;
+    margin-right:14px;
   }
 
-  header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 8px 24px;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 24px;
-    margin-bottom: 32px;
+  .market-info{ display:flex; flex-direction:column; min-width:0; }
+  .market-name{
+    font-weight:600;
+    font-size:16px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .direction-tag{ color:var(--red); font-weight:600; }
+  .direction-dot{ color:var(--muted); }
+  .market-sub{
+    color:var(--muted);
+    font-size:13px;
+    margin-top:2px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
 
-  h1 {
-    font-family: 'Fraunces', serif;
-    font-weight: 600;
-    font-size: 34px;
-    margin: 0;
-    letter-spacing: -0.01em;
+  .val{ font-size:16px; }
+  .ev-wrap{ display:flex; align-items:baseline; justify-content:flex-end; gap:8px; white-space:nowrap; }
+  .ev-main{ font-size:16px; font-weight:500; }
+  .ev-delta{ font-size:14px; font-weight:600; display:flex; align-items:center; gap:2px; }
+  .up{ color:var(--green); }
+  .down{ color:var(--red); }
+
+  .controls{
+    display:flex;
+    gap:10px;
+    padding:14px 24px;
+  }
+  .controls input{
+    background:#141416;
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:8px 12px;
+    border-radius:8px;
+    font-size:14px;
+    min-width:220px;
   }
 
-  .sub {
-    color: var(--text-dim);
-    font-size: 14px;
-    margin-top: 4px;
+  .loading,.error{
+    padding:40px 24px;
+    color:var(--muted);
+    text-align:center;
   }
-
-  .updated {
-    color: var(--text-dim);
-    font-size: 13px;
-    white-space: nowrap;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 14px;
-  }
-
-  thead th {
-    text-align: left;
-    font-weight: 500;
-    color: var(--text-dim);
-    font-size: 12.5px;
-    padding: 0 12px 10px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  th.num, td.num { text-align: right; }
-
-  tbody td {
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border);
-    font-variant-numeric: tabular-nums;
-  }
-
-  tbody tr:nth-child(even) { background: var(--bg-row-alt); }
-
-  .rank {
-    color: var(--text-dim);
-    font-variant-numeric: tabular-nums;
-    width: 32px;
-  }
-
-  .team { font-weight: 500; }
-
-  .market {
-    color: var(--text-dim);
-    font-size: 13px;
-  }
-
-  .edge {
-    color: var(--accent);
-    font-weight: 600;
-    font-size: 15px;
-  }
-
-  .dir {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-  }
-
-  .dir::before {
-    content: "";
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    display: inline-block;
-  }
-
-  .dir.over { color: var(--over); }
-  .dir.over::before { background: var(--over); }
-  .dir.under { color: var(--under); }
-  .dir.under::before { background: var(--under); }
-
-  .bid { color: var(--over); }
-  .ask { color: var(--under); }
-  .vol {
-    color: var(--text-dim);
-    font-size: 12px;
-    margin-left: 4px;
-  }
-
-  .state {
-    color: var(--text-dim);
-    padding: 60px 0;
-    text-align: center;
-    font-size: 14px;
-  }
-
-  @media (max-width: 640px) {
-    h1 { font-size: 26px; }
-    .market, .dir { display: none; }
-    thead th:nth-child(3), thead th:nth-child(6) { display: none; }
-  }
+  .error{ color:var(--red); }
 </style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <div>
-        <h1>Edge Board</h1>
-        <div class="sub">Top 100 Premier League contracts by model disagreement</div>
-      </div>
-      <div class="updated" id="updated">loading…</div>
-    </header>
 
-    <div id="content">
-      <div class="state">Loading current prices…</div>
-    </div>
-  </div>
+<div class="tabs">
+  <div class="tab active">Positions</div>
+  <div class="tab">Orders</div>
+  <div class="tab">History</div>
+</div>
+
+<div class="controls">
+  <input type="text" id="search" placeholder="Filter by team or contract…">
+</div>
+
+<div class="header-row" id="headerRow">
+  <div class="col col-market" data-key="Team">Market</div>
+  <div class="col col-entry" data-key="Average Price">Entry</div>
+  <div class="col col-chance" data-key="Chance">Model Chance</div>
+  <div class="col col-cost" data-key="Cost">Cost</div>
+  <div class="col col-towin" data-key="To Win">To Win</div>
+  <div class="col col-ev" data-key="EV">Expected Value</div>
+</div>
+
+<div id="body">
+  <div class="loading">Loading…</div>
+</div>
 
 <script>
-  // --- CONFIG ---
-  const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQH4hB9881ozEMoyGlbP4iujYGiejtuiJ5HZhd7AZkhRAa16A5XEWZLXUBf9Vy-QWA_dI-Q1Zejm6QG/pub?gid=1114700259&single=true&output=csv";
+/* ============================================================
+   CONFIG
+   ============================================================ */
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEDZn3nCmmlg-m0mkBlMX2VZ2At99ZEPa-s88XTuQGnhJqBRq0-ETFVEK6FLXdcH8uPCHI6HAgweeL/pub?gid=437407389&single=true&output=csv";
 
-  // Column layout, matching the sheet: Team, Market, Chance, Bid, BidVol, Ask, AskVol, Spread, Inside/Outside, Edge, Direction
-  const COL = { team: 0, market: 1, chance: 2, bid: 3, bidVol: 4, ask: 5, askVol: 6, edge: 9, direction: 10 };
+// Colors cycled for the team-initial avatars (no real crests, just distinct fills)
+const AVATAR_COLORS = ["#5b6ee1","#e15b8f","#5be1a8","#e1a75b","#8f5be1","#e15b5b","#5bc4e1","#a3e15b"];
 
-  function clampChance(pct) {
-    if (pct >= 100) return 99.9;
-    if (pct <= 0) return 0.1;
-    return pct;
-  }
-
-  function formatVol(v) {
-    if (isNaN(v)) return "0";
-    return v.toLocaleString(undefined, { maximumFractionDigits: 0 });
-  }
-
-  async function loadData() {
-    const content = document.getElementById('content');
-    try {
-      const res = await fetch(SHEET_CSV_URL, { cache: "no-store" });
-      if (!res.ok) throw new Error("Sheet fetch failed: " + res.status);
-      const csvText = await res.text();
-      const parsed = Papa.parse(csvText.trim(), { skipEmptyLines: true });
-      const rows = parsed.data.slice(1);
-
-      const cleaned = rows
-        .map(r => ({
-          team: r[COL.team],
-          market: r[COL.market],
-          chance: clampChance(parseFloat(r[COL.chance])),
-          bid: parseFloat(r[COL.bid]),
-          bidVol: parseFloat(r[COL.bidVol]),
-          ask: parseFloat(r[COL.ask]),
-          askVol: parseFloat(r[COL.askVol]),
-          edge: parseFloat(r[COL.edge]),
-          direction: (r[COL.direction] || "").trim(),
-        }))
-        .filter(r => r.team && !isNaN(r.edge))
-        .sort((a, b) => b.edge - a.edge)
-        .slice(0, 100);
-
-      renderTable(cleaned);
-      document.getElementById('updated').textContent =
-        "Updated " + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } catch (err) {
-      content.innerHTML = `<div class="state">Couldn't load data. Check that SHEET_CSV_URL is set and the sheet is published to web.<br><br>${err.message}</div>`;
+/* ============================================================
+   CSV parsing
+   ============================================================ */
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = "", inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i], next = text[i + 1];
+    if (inQuotes) {
+      if (c === '"' && next === '"') { field += '"'; i++; }
+      else if (c === '"') { inQuotes = false; }
+      else { field += c; }
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') { row.push(field); field = ""; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && next === '\n') i++;
+        row.push(field); field = "";
+        if (row.length > 1 || row[0] !== "") rows.push(row);
+        row = [];
+      } else { field += c; }
     }
   }
+  if (field !== "" || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
 
-  function renderTable(rows) {
-    const body = rows.map((r, i) => `
-      <tr>
-        <td class="rank">${i + 1}</td>
-        <td class="team">${escapeHtml(r.team)}</td>
-        <td class="market">${escapeHtml(r.market)}</td>
-        <td class="num edge">${(r.edge * 100).toFixed(1)}%</td>
-        <td><span class="dir ${r.direction.toLowerCase()}">${escapeHtml(r.direction)}</span></td>
-        <td class="num">${(r.chance).toFixed(1)}%</td>
-        <td class="num bid">${r.bid.toFixed(2)}<span class="vol">$${formatVol(r.bidVol)}</span></td>
-        <td class="num ask">${r.ask.toFixed(2)}<span class="vol">$${formatVol(r.askVol)}</span></td>
-      </tr>
-    `).join('');
+function toNumber(val) {
+  if (val === undefined || val === null) return NaN;
+  const cleaned = String(val).replace(/[$,%]/g, "").trim();
+  if (cleaned === "" || cleaned === "-") return NaN;
+  return parseFloat(cleaned);
+}
 
-    document.getElementById('content').innerHTML = `
-      <table>
-        <thead>
-          <tr>
-            <th></th>
-            <th>Team</th>
-            <th>Market</th>
-            <th class="num">Edge</th>
-            <th>Direction</th>
-            <th class="num">Model chance</th>
-            <th class="num">Bid</th>
-            <th class="num">Ask</th>
-          </tr>
-        </thead>
-        <tbody>${body}</tbody>
-      </table>
+function fmtMoney(n) {
+  if (isNaN(n)) return "—";
+  const sign = n < 0 ? "-" : "";
+  return `${sign}$${Math.abs(n).toFixed(2)}`;
+}
+
+function fmtCents(n) {
+  if (isNaN(n)) return "—";
+  return `${(n * 100).toFixed(2)}¢`;
+}
+
+function fmtPct(n) {
+  if (isNaN(n)) return "—";
+  return `${n.toFixed(1)}%`;
+}
+
+function initials(name) {
+  return name.split(/\s+/).map(w => w[0]).join("").slice(0, 3).toUpperCase();
+}
+
+function colorFor(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function contractPhrase(contract) {
+  if (/^top\s*\d+/i.test(contract)) return `${contract} Finish`;
+  return contract;
+}
+
+/* ============================================================
+   Render
+   ============================================================ */
+let currentRows = [];
+let sortKey = "EV";
+let sortDir = -1;
+
+function applyFilter(rows) {
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  if (!q) return rows;
+  return rows.filter(r =>
+    (r["Team"] || "").toLowerCase().includes(q) ||
+    (r["Contract"] || "").toLowerCase().includes(q)
+  );
+}
+
+function renderRows(rows) {
+  const body = document.getElementById("body");
+
+  let sorted = rows.slice();
+  if (sortKey) {
+    sorted.sort((a, b) => {
+      const av = toNumber(a[sortKey]);
+      const bv = toNumber(b[sortKey]);
+      if (!isNaN(av) && !isNaN(bv)) return (av - bv) * sortDir;
+      return String(a[sortKey] || "").localeCompare(String(b[sortKey] || "")) * sortDir;
+    });
+  }
+
+  if (sorted.length === 0) {
+    body.innerHTML = `<div class="loading">No positions match.</div>`;
+    return;
+  }
+
+  body.innerHTML = "";
+  sorted.forEach(r => {
+    const team = r["Team"] || "";
+    const contract = r["Contract"] || "";
+    const direction = (r["Direction"] || "").trim();
+    const cost = toNumber(r["Cost"]);
+    const toWin = toNumber(r["To Win"]);
+    const ev = toNumber(r["EV"]);
+    const gl = toNumber(r["Gain/Loss"]);
+    const chance = toNumber(r["Chance"]);
+    const avgPrice = toNumber(r["Average Price"]);
+    const glPct = (cost && !isNaN(gl)) ? (gl / cost) * 100 : NaN;
+    const isUp = gl >= 0;
+
+    const row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML = `
+      <div class="col col-market">
+        <div class="avatar" style="background:${colorFor(team)}">${initials(team)}</div>
+        <div class="market-info">
+          <div class="market-name">
+            ${team}
+            ${direction.toLowerCase() === "no" ? `<span class="direction-dot">•</span><span class="direction-tag">No</span>` : ""}
+          </div>
+          <div class="market-sub">English Premier League &nbsp;${contractPhrase(contract)}</div>
+        </div>
+      </div>
+      <div class="col col-entry"><span class="val">${fmtCents(avgPrice)}</span></div>
+      <div class="col col-chance"><span class="val">${fmtPct(chance)}</span></div>
+      <div class="col col-cost"><span class="val">${fmtMoney(cost)}</span></div>
+      <div class="col col-towin"><span class="val">${fmtMoney(toWin)}</span></div>
+      <div class="col col-ev">
+        <div class="ev-wrap">
+          <span class="ev-main">${fmtMoney(ev)}</span>
+          <span class="ev-delta ${isUp ? 'up' : 'down'}">
+            ${isUp ? '▲' : '▼'} ${fmtMoney(Math.abs(gl))} (${isNaN(glPct) ? '—' : Math.abs(glPct).toFixed(0) + '%'})
+          </span>
+        </div>
+      </div>
     `;
-  }
+    body.appendChild(row);
+  });
+}
 
-  function escapeHtml(str) {
-    const d = document.createElement('div');
-    d.textContent = str;
-    return d.innerHTML;
-  }
+async function load() {
+  const body = document.getElementById("body");
+  try {
+    const res = await fetch(CSV_URL, { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    const table = parseCSV(text).filter(r => r.some(c => c.trim() !== ""));
+    const headers = table[0].map(h => h.trim());
+    const rows = table.slice(1).map(r => {
+      const obj = {};
+      headers.forEach((h, i) => obj[h] = (r[i] || "").trim());
+      return obj;
+    });
 
-  loadData();
-  setInterval(loadData, 5 * 60 * 1000);
+    currentRows = rows;
+    renderRows(applyFilter(rows));
+
+    document.getElementById("search").addEventListener("input", () => {
+      renderRows(applyFilter(currentRows));
+    });
+
+    document.querySelectorAll(".header-row .col").forEach(col => {
+      col.addEventListener("click", () => {
+        const key = col.dataset.key;
+        if (sortKey === key) sortDir *= -1;
+        else { sortKey = key; sortDir = 1; }
+        renderRows(applyFilter(currentRows));
+      });
+    });
+  } catch (err) {
+    body.innerHTML = `<div class="error">Couldn't load the sheet: ${err.message}.
+      Make sure it's published to the web as CSV (File → Share → Publish to web).</div>`;
+  }
+}
+
+load();
 </script>
 </body>
 </html>
