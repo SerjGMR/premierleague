@@ -21,6 +21,10 @@
     color:var(--text);
   }
 
+  .page-title{ padding:24px 24px 0 24px; }
+  .page-title h1{ margin:0; font-size:20px; font-weight:700; }
+  .page-title .byline{ margin-top:4px; font-size:13px; color:var(--muted); }
+
   /* ---- top tabs ---- */
   .tabs{
     display:flex;
@@ -33,11 +37,14 @@
     font-size:16px;
     font-weight:600;
     color:var(--muted);
-    cursor:default;
+    cursor:pointer;
+    user-select:none;
+    border-bottom:2px solid transparent;
   }
+  .tab:hover{ color:var(--text); }
   .tab.active{
     color:var(--text);
-    border-bottom:2px solid var(--text);
+    border-bottom-color:var(--text);
   }
 
   /* ---- header row ---- */
@@ -57,11 +64,9 @@
 
   /* ---- column widths (shared by header + rows) ---- */
   .col-market{ flex:2.6; text-align:left; display:flex; align-items:center; }
-  .col-entry{ flex:0.9; text-align:right; }
-  .col-chance{ flex:1; text-align:right; }
-  .col-cost{ flex:1; text-align:right; }
-  .col-towin{ flex:1; text-align:right; }
-  .col-ev{ flex:1.7; text-align:right; }
+  .col-narrow{ flex:0.9; text-align:right; }
+  .col-mid{ flex:1; text-align:right; }
+  .col-wide{ flex:1.7; text-align:right; }
 
   /* ---- data rows ---- */
   .row{
@@ -86,11 +91,7 @@
     margin-right:14px;
     overflow:hidden;
   }
-  .avatar img{
-    width:100%;
-    height:100%;
-    object-fit:cover;
-  }
+  .avatar img{ width:100%; height:100%; object-fit:cover; }
 
   .market-info{ display:flex; flex-direction:column; min-width:0; }
   .market-name{
@@ -115,6 +116,9 @@
   }
 
   .val{ font-size:16px; }
+  .pos-text{ color:var(--green); }
+  .neg-text{ color:var(--red); }
+
   .ev-wrap{ display:flex; align-items:baseline; justify-content:flex-end; gap:8px; white-space:nowrap; }
   .ev-main{ font-size:16px; font-weight:500; }
   .ev-delta{ font-size:14px; font-weight:600; display:flex; align-items:center; gap:2px; }
@@ -137,10 +141,7 @@
     font-size:14px;
   }
   .controls input{ min-width:220px; }
-  .controls label{
-    color:var(--muted);
-    font-size:13px;
-  }
+  .controls label{ color:var(--muted); font-size:13px; }
   .dir-toggle{
     background:#141416;
     border:1px solid var(--border);
@@ -162,18 +163,65 @@
   }
   .error{ color:var(--red); }
 
-  .page-title{
-    padding:24px 24px 0 24px;
-  }
-  .page-title h1{
-    margin:0;
-    font-size:20px;
-    font-weight:700;
-  }
-  .page-title .byline{
-    margin-top:4px;
-    font-size:13px;
+  .updated-note{
+    padding:8px 24px 0 24px;
+    font-size:12px;
     color:var(--muted);
+  }
+
+  /* ============================================================
+     MOBILE LAYOUT
+     Below this width, rows collapse from one wide horizontal strip
+     into a stacked card: team info on top, then each stat on its
+     own line with a small label (since the header row is hidden).
+     ============================================================ */
+  @media (max-width: 640px) {
+    .page-title{ padding:16px 16px 0 16px; }
+    .page-title h1{ font-size:17px; }
+
+    .tabs{ padding:16px 16px 0 16px; gap:20px; }
+    .tab{ font-size:14px; padding-bottom:12px; }
+
+    .controls{ padding:12px 16px; }
+    .controls input{ min-width:0; flex:1 1 100%; }
+    .controls label{ flex:0 0 auto; }
+    .controls select{ flex:1 1 auto; }
+    .dir-toggle{ flex:1 1 auto; justify-content:center; }
+
+    /* Column labels move onto each row as data-label instead */
+    .header-row{ display:none; }
+
+    .row{
+      flex-direction:column;
+      align-items:stretch;
+      padding:14px 16px;
+      gap:8px;
+    }
+    .row:hover{ background:none; }
+
+    .col-market{ width:100%; }
+    .avatar{ width:38px; height:38px; flex:0 0 38px; margin-right:10px; }
+    .market-name{ font-size:15px; }
+    .market-sub{ font-size:12px; }
+
+    .col-narrow, .col-mid, .col-wide{
+      width:100%;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      text-align:left;
+      font-size:14px;
+      padding:2px 0;
+    }
+    .col-narrow::before, .col-mid::before, .col-wide::before{
+      content: attr(data-label);
+      color:var(--muted);
+      font-size:13px;
+    }
+    .val{ font-size:14px; }
+    .ev-wrap{ justify-content:flex-end; }
+    .ev-main{ font-size:14px; }
+    .ev-delta{ font-size:13px; }
   }
 </style>
 </head>
@@ -184,51 +232,41 @@
   <div class="byline">by Serj Petrossian</div>
 </div>
 
-<div class="tabs">
-  <div class="tab active">My Positions</div>
-  <div class="tab">Orders</div>
-  <div class="tab">History</div>
+<div class="tabs" id="tabs">
+  <div class="tab active" data-tab="positions">My Positions</div>
+  <div class="tab" data-tab="edge">Market Edge</div>
 </div>
 
 <div class="controls">
   <input type="text" id="search" placeholder="Filter by team or contract…">
   <label for="sortMetric">Sort by</label>
-  <select id="sortMetric">
-    <option value="EV">Expected Value</option>
-    <option value="To Win">Win Amount</option>
-    <option value="Gain/Loss">$ Gain/Loss</option>
-    <option value="GainPct">% Gain/Loss</option>
-  </select>
-  <button class="dir-toggle" id="dirToggle" type="button" data-dir="-1">
+  <select id="sortMetric"></select>
+  <button class="dir-toggle" id="dirToggle" type="button">
     <span id="dirArrow">▼</span> <span id="dirLabel">High to Low</span>
   </button>
 </div>
 
-<div class="header-row" id="headerRow">
-  <div class="col col-market" data-key="Team">Market</div>
-  <div class="col col-entry" data-key="Average Price">Entry</div>
-  <div class="col col-chance" data-key="Chance">Model Chance</div>
-  <div class="col col-cost" data-key="Cost">Cost</div>
-  <div class="col col-towin" data-key="To Win">To Win</div>
-  <div class="col col-ev" data-key="EV">Expected Value</div>
-</div>
+<div class="header-row" id="headerRow"></div>
 
 <div id="body">
   <div class="loading">Loading…</div>
 </div>
 
+<div class="updated-note" id="updatedNote"></div>
+
 <script>
 /* ============================================================
    CONFIG
    ============================================================ */
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEDZn3nCmmlg-m0mkBlMX2VZ2At99ZEPa-s88XTuQGnhJqBRq0-ETFVEK6FLXdcH8uPCHI6HAgweeL/pub?gid=437407389&single=true&output=csv";
+const POSITIONS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEDZn3nCmmlg-m0mkBlMX2VZ2At99ZEPa-s88XTuQGnhJqBRq0-ETFVEK6FLXdcH8uPCHI6HAgweeL/pub?gid=437407389&single=true&output=csv";
+const EDGE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEDZn3nCmmlg-m0mkBlMX2VZ2At99ZEPa-s88XTuQGnhJqBRq0-ETFVEK6FLXdcH8uPCHI6HAgweeL/pub?gid=1149386090&single=true&output=csv";
+
+const REFRESH_MS = 30000; // "live updating" refresh interval
 
 // Colors cycled for the fallback team-initial avatars (used if no logo file is found)
 const AVATAR_COLORS = ["#5b6ee1","#e15b8f","#5be1a8","#e1a75b","#8f5be1","#e15b5b","#5bc4e1","#a3e15b"];
 
-// Map each sheet "Team" value to a logo file (sitting at the repo root).
-// Add/edit entries here as you drop in image files. Any team not listed
-// (or whose image 404s) automatically falls back to the initials avatar.
+// Map each "Team" value to a logo file (sitting at the repo root).
 const LOGO_MAP = {
   "Man City":          "manchester-city.football-logos.cc.png",
   "Chelsea":           "chelsea.football-logos.cc.png",
@@ -297,9 +335,9 @@ function fmtCents(n) {
   return `${(n * 100).toFixed(2)}¢`;
 }
 
-function fmtPct(n) {
+function fmtPct(n, decimals = 1) {
   if (isNaN(n)) return "—";
-  return `${n.toFixed(1)}%`;
+  return `${n.toFixed(decimals)}%`;
 }
 
 function initials(name) {
@@ -312,173 +350,308 @@ function colorFor(name) {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
+function titleCase(str) {
+  return String(str || "").toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function contractPhrase(contract) {
-  if (/^top\s*\d+/i.test(contract)) return `${contract} Finish`;
-  return contract;
+  const tc = titleCase(contract);
+  if (/^top\s*\d+/i.test(tc)) return `${tc} Finish`;
+  return tc;
+}
+
+function avatarHTML(team) {
+  if (LOGO_MAP[team]) {
+    return `<div class="avatar"><img src="${LOGO_MAP[team]}" alt="${team}"
+      onerror="this.parentElement.outerHTML='<div class=\\'avatar\\' style=\\'background:${colorFor(team)}\\'>${initials(team)}</div>'"></div>`;
+  }
+  return `<div class="avatar" style="background:${colorFor(team)}">${initials(team)}</div>`;
 }
 
 /* ============================================================
-   Render
+   Tab definitions
    ============================================================ */
-let currentRows = [];
-let sortKey = "EV";
-let sortDir = -1;
+const TABS = {
+  positions: {
+    csvUrl: POSITIONS_CSV_URL,
+    searchPlaceholder: "Filter by team or contract…",
+    headerCols: [
+      { key: "Team",       label: "Market",         cls: "col-market" },
+      { key: "EntryVal",   label: "Entry",          cls: "col-narrow" },
+      { key: "ChanceVal",  label: "Model Chance",   cls: "col-mid" },
+      { key: "CostVal",    label: "Cost",           cls: "col-mid" },
+      { key: "ToWinVal",   label: "To Win",         cls: "col-mid" },
+      { key: "EVVal",      label: "Expected Value", cls: "col-wide" },
+    ],
+    sortOptions: [
+      { value: "EVVal",  label: "Expected Value" },
+      { value: "ToWinVal", label: "Win Amount" },
+      { value: "GLVal",  label: "$ Gain/Loss" },
+      { value: "GLPct",  label: "% Gain/Loss" },
+    ],
+    defaultSort: { key: "EVVal", dir: -1 },
+    parseRows(table) {
+      const headers = table[0].map(h => h.trim());
+      return table.slice(1).map(r => {
+        const obj = {};
+        headers.forEach((h, i) => obj[h] = (r[i] || "").trim());
+        const cost = toNumber(obj["Cost"]);
+        const gl = toNumber(obj["Gain/Loss"]);
+        obj.Team = obj["Team"] || "";
+        obj.Contract = obj["Contract"] || "";
+        obj.Direction = (obj["Direction"] || "").trim();
+        obj.EntryVal = toNumber(obj["Average Price"]);
+        obj.ChanceVal = toNumber(obj["Chance"]);
+        obj.CostVal = cost;
+        obj.ToWinVal = toNumber(obj["To Win"]);
+        obj.EVVal = toNumber(obj["EV"]);
+        obj.GLVal = gl;
+        obj.GLPct = (cost && !isNaN(gl)) ? (gl / cost) * 100 : NaN;
+        return obj;
+      });
+    },
+    matchesFilter(row, q) {
+      return row.Team.toLowerCase().includes(q) || row.Contract.toLowerCase().includes(q);
+    },
+    renderRow(r) {
+      const isUp = r.GLVal >= 0;
+      return `
+        <div class="col col-market">
+          ${avatarHTML(r.Team)}
+          <div class="market-info">
+            <div class="market-name">
+              ${r.Team}
+              ${r.Direction.toLowerCase() === "no" ? `<span class="direction-dot">•</span><span class="direction-tag">No</span>` : ""}
+            </div>
+            <div class="market-sub">English Premier League &nbsp;${contractPhrase(r.Contract)}</div>
+          </div>
+        </div>
+        <div class="col col-narrow" data-label="Entry"><span class="val">${fmtCents(r.EntryVal)}</span></div>
+        <div class="col col-mid" data-label="Model Chance"><span class="val">${fmtPct(r.ChanceVal)}</span></div>
+        <div class="col col-mid" data-label="Cost"><span class="val">${fmtMoney(r.CostVal)}</span></div>
+        <div class="col col-mid" data-label="To Win"><span class="val">${fmtMoney(r.ToWinVal)}</span></div>
+        <div class="col col-wide" data-label="Expected Value">
+          <div class="ev-wrap">
+            <span class="ev-main">${fmtMoney(r.EVVal)}</span>
+            <span class="ev-delta ${isUp ? 'up' : 'down'}">
+              ${isUp ? '▲' : '▼'} ${fmtMoney(Math.abs(r.GLVal))} (${isNaN(r.GLPct) ? '—' : Math.abs(r.GLPct).toFixed(0) + '%'})
+            </span>
+          </div>
+        </div>
+      `;
+    }
+  },
 
-function applyFilter(rows) {
-  const q = document.getElementById("search").value.trim().toLowerCase();
-  if (!q) return rows;
-  return rows.filter(r =>
-    (r["Team"] || "").toLowerCase().includes(q) ||
-    (r["Contract"] || "").toLowerCase().includes(q)
-  );
-}
-
-// Some sort keys are computed rather than raw sheet columns.
-function sortValue(row, key) {
-  if (key === "GainPct") {
-    const cost = toNumber(row["Cost"]);
-    const gl = toNumber(row["Gain/Loss"]);
-    return (cost && !isNaN(gl)) ? (gl / cost) * 100 : NaN;
+  edge: {
+    csvUrl: EDGE_CSV_URL,
+    searchPlaceholder: "Filter by team or contract…",
+    headerCols: [
+      { key: "Team",      label: "Market",       cls: "col-market" },
+      { key: "EntryVal",  label: "Entry",        cls: "col-mid" },
+      { key: "ChanceVal", label: "Model Chance", cls: "col-mid" },
+      { key: "EdgeVal",   label: "Edge %",       cls: "col-mid" },
+    ],
+    sortOptions: [
+      { value: "EdgeVal",   label: "Edge %" },
+      { value: "ChanceVal", label: "Model Chance" },
+      { value: "EntryVal",  label: "Entry Price" },
+    ],
+    defaultSort: { key: "EdgeVal", dir: -1 },
+    // This sheet's columns have no header names for I/J/K, so we read by
+    // fixed position: A Team, B Contract, C Chance, D Bid, F Ask, J Edge, K Over/Under.
+    parseRows(table) {
+      return table.slice(1)
+        .filter(r => (r[0] || "").trim() !== "")
+        .map(r => {
+          const team = (r[0] || "").trim();
+          const contract = (r[1] || "").trim();
+          const chance = toNumber(r[2]);
+          const bid = toNumber(r[3]);
+          const ask = toNumber(r[5]);
+          const edge = toNumber(r[9]);
+          const overUnder = (r[10] || "").trim();
+          const isOver = overUnder.toLowerCase() === "over";
+          return {
+            Team: team,
+            Contract: contract,
+            OverUnder: overUnder,
+            ChanceVal: chance,
+            EntryVal: isOver ? ask : bid,
+            EdgeVal: edge,
+          };
+        });
+    },
+    matchesFilter(row, q) {
+      return row.Team.toLowerCase().includes(q) || row.Contract.toLowerCase().includes(q);
+    },
+    renderRow(r) {
+      const edgeUp = r.EdgeVal >= 0;
+      return `
+        <div class="col col-market">
+          ${avatarHTML(r.Team)}
+          <div class="market-info">
+            <div class="market-name">
+              ${r.Team}
+              ${r.OverUnder.toLowerCase() === "under" ? `<span class="direction-dot">•</span><span class="direction-tag">Under</span>` : ""}
+            </div>
+            <div class="market-sub">English Premier League &nbsp;${contractPhrase(r.Contract)}</div>
+          </div>
+        </div>
+        <div class="col col-mid" data-label="Entry"><span class="val">${fmtCents(r.EntryVal)}</span></div>
+        <div class="col col-mid" data-label="Model Chance"><span class="val">${fmtPct(r.ChanceVal)}</span></div>
+        <div class="col col-mid" data-label="Edge %"><span class="val ${edgeUp ? 'pos-text' : 'neg-text'}">${fmtPct(r.EdgeVal)}</span></div>
+      `;
+    }
   }
-  return toNumber(row[key]);
-}
+};
 
-function renderRows(rows) {
-  const body = document.getElementById("body");
+/* ============================================================
+   State + shared render/sort/filter engine
+   ============================================================ */
+let activeTab = "positions";
+let cache = {};        // { positions: [...], edge: [...] }
+let sortState = {};     // { positions: {key,dir}, edge: {key,dir} }
+let refreshTimer = null;
 
-  let sorted = rows.slice();
-  if (sortKey) {
-    sorted.sort((a, b) => {
-      const av = sortValue(a, sortKey);
-      const bv = sortValue(b, sortKey);
-      if (!isNaN(av) && !isNaN(bv)) return (av - bv) * sortDir;
-      // text column (e.g. Market/Team) — alphabetical fallback
-      return String(a[sortKey] || "").localeCompare(String(b[sortKey] || "")) * sortDir;
+Object.keys(TABS).forEach(t => { sortState[t] = { ...TABS[t].defaultSort }; });
+
+function buildHeader() {
+  const cfg = TABS[activeTab];
+  const headerRow = document.getElementById("headerRow");
+  headerRow.innerHTML = "";
+  cfg.headerCols.forEach(col => {
+    const div = document.createElement("div");
+    div.className = `col ${col.cls}`;
+    div.dataset.key = col.key;
+    div.textContent = col.label;
+    div.addEventListener("click", () => {
+      const s = sortState[activeTab];
+      if (s.key === col.key) s.dir *= -1;
+      else { s.key = col.key; s.dir = 1; }
+      syncControls();
+      render();
     });
-  }
+    headerRow.appendChild(div);
+  });
+}
 
-  if (sorted.length === 0) {
-    body.innerHTML = `<div class="loading">No positions match.</div>`;
+function buildSortDropdown() {
+  const cfg = TABS[activeTab];
+  const select = document.getElementById("sortMetric");
+  select.innerHTML = cfg.sortOptions.map(o => `<option value="${o.value}">${o.label}</option>`).join("");
+}
+
+function syncControls() {
+  const s = sortState[activeTab];
+  const select = document.getElementById("sortMetric");
+  const options = Array.from(select.options).map(o => o.value);
+  if (options.includes(s.key)) select.value = s.key;
+
+  const arrow = document.getElementById("dirArrow");
+  const label = document.getElementById("dirLabel");
+  if (s.dir === -1) { arrow.textContent = "▼"; label.textContent = "High to Low"; }
+  else { arrow.textContent = "▲"; label.textContent = "Low to High"; }
+
+  document.getElementById("search").placeholder = TABS[activeTab].searchPlaceholder;
+}
+
+function render() {
+  const cfg = TABS[activeTab];
+  const rows = cache[activeTab] || [];
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  let filtered = q ? rows.filter(r => cfg.matchesFilter(r, q)) : rows.slice();
+
+  const s = sortState[activeTab];
+  filtered.sort((a, b) => {
+    const av = a[s.key], bv = b[s.key];
+    const an = typeof av === "number" ? av : toNumber(av);
+    const bn = typeof bv === "number" ? bv : toNumber(bv);
+    if (!isNaN(an) && !isNaN(bn)) return (an - bn) * s.dir;
+    return String(av || "").localeCompare(String(bv || "")) * s.dir;
+  });
+
+  const body = document.getElementById("body");
+  if (filtered.length === 0) {
+    body.innerHTML = `<div class="loading">${rows.length === 0 ? "Loading…" : "No matches."}</div>`;
     return;
   }
-
   body.innerHTML = "";
-  sorted.forEach(r => {
-    const team = r["Team"] || "";
-    const contract = r["Contract"] || "";
-    const direction = (r["Direction"] || "").trim();
-    const cost = toNumber(r["Cost"]);
-    const toWin = toNumber(r["To Win"]);
-    const ev = toNumber(r["EV"]);
-    const gl = toNumber(r["Gain/Loss"]);
-    const chance = toNumber(r["Chance"]);
-    const avgPrice = toNumber(r["Average Price"]);
-    const glPct = (cost && !isNaN(gl)) ? (gl / cost) * 100 : NaN;
-    const isUp = gl >= 0;
-
+  filtered.forEach(r => {
     const row = document.createElement("div");
     row.className = "row";
-    row.innerHTML = `
-      <div class="col col-market">
-        ${LOGO_MAP[team]
-          ? `<div class="avatar"><img src="${LOGO_MAP[team]}" alt="${team}"
-               onerror="this.parentElement.outerHTML='<div class=\\'avatar\\' style=\\'background:${colorFor(team)}\\'>${initials(team)}</div>'"></div>`
-          : `<div class="avatar" style="background:${colorFor(team)}">${initials(team)}</div>`
-        }
-        <div class="market-info">
-          <div class="market-name">
-            ${team}
-            ${direction.toLowerCase() === "no" ? `<span class="direction-dot">•</span><span class="direction-tag">No</span>` : ""}
-          </div>
-          <div class="market-sub">English Premier League &nbsp;${contractPhrase(contract)}</div>
-        </div>
-      </div>
-      <div class="col col-entry"><span class="val">${fmtCents(avgPrice)}</span></div>
-      <div class="col col-chance"><span class="val">${fmtPct(chance)}</span></div>
-      <div class="col col-cost"><span class="val">${fmtMoney(cost)}</span></div>
-      <div class="col col-towin"><span class="val">${fmtMoney(toWin)}</span></div>
-      <div class="col col-ev">
-        <div class="ev-wrap">
-          <span class="ev-main">${fmtMoney(ev)}</span>
-          <span class="ev-delta ${isUp ? 'up' : 'down'}">
-            ${isUp ? '▲' : '▼'} ${fmtMoney(Math.abs(gl))} (${isNaN(glPct) ? '—' : Math.abs(glPct).toFixed(0) + '%'})
-          </span>
-        </div>
-      </div>
-    `;
+    row.innerHTML = cfg.renderRow(r);
     body.appendChild(row);
   });
 }
 
-async function load() {
+async function fetchTab(tabKey) {
+  const cfg = TABS[tabKey];
+  const res = await fetch(cfg.csvUrl, { cache: "no-store" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const text = await res.text();
+  const table = parseCSV(text).filter(r => r.some(c => c.trim() !== ""));
+  cache[tabKey] = cfg.parseRows(table);
+}
+
+async function loadActiveTab({ silent } = {}) {
   const body = document.getElementById("body");
+  if (!silent && !cache[activeTab]) {
+    body.innerHTML = `<div class="loading">Loading…</div>`;
+  }
   try {
-    const res = await fetch(CSV_URL, { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const text = await res.text();
-    const table = parseCSV(text).filter(r => r.some(c => c.trim() !== ""));
-    const headers = table[0].map(h => h.trim());
-    const rows = table.slice(1).map(r => {
-      const obj = {};
-      headers.forEach((h, i) => obj[h] = (r[i] || "").trim());
-      return obj;
-    });
-
-    currentRows = rows;
-    renderRows(applyFilter(rows));
-
-    document.getElementById("search").addEventListener("input", () => {
-      renderRows(applyFilter(currentRows));
-    });
-
-    // Header clicks sort by that column (ascending/descending toggle).
-    document.querySelectorAll(".header-row .col").forEach(col => {
-      col.addEventListener("click", () => {
-        const key = col.dataset.key;
-        if (sortKey === key) sortDir *= -1;
-        else { sortKey = key; sortDir = 1; }
-        syncSortControls();
-        renderRows(applyFilter(currentRows));
-      });
-    });
-
-    // "Sort by" dropdown: Expected Value / Win Amount / $ Gain-Loss / % Gain-Loss
-    const sortMetric = document.getElementById("sortMetric");
-    sortMetric.addEventListener("change", () => {
-      sortKey = sortMetric.value;
-      renderRows(applyFilter(currentRows));
-    });
-
-    // High-to-low / low-to-high toggle, applies to whichever sort is active
-    const dirToggle = document.getElementById("dirToggle");
-    dirToggle.addEventListener("click", () => {
-      sortDir *= -1;
-      updateDirToggleLabel();
-      renderRows(applyFilter(currentRows));
-    });
-
-    function updateDirToggleLabel() {
-      const arrow = document.getElementById("dirArrow");
-      const label = document.getElementById("dirLabel");
-      if (sortDir === -1) { arrow.textContent = "▼"; label.textContent = "High to Low"; }
-      else { arrow.textContent = "▲"; label.textContent = "Low to High"; }
-    }
-
-    // Keep the dropdown in sync when a header click picks one of its metrics
-    function syncSortControls() {
-      const options = Array.from(sortMetric.options).map(o => o.value);
-      if (options.includes(sortKey)) sortMetric.value = sortKey;
-      updateDirToggleLabel();
-    }
-
-    updateDirToggleLabel();
+    await fetchTab(activeTab);
+    render();
+    document.getElementById("updatedNote").textContent =
+      `Last updated ${new Date().toLocaleTimeString()}`;
   } catch (err) {
     body.innerHTML = `<div class="error">Couldn't load the sheet: ${err.message}.
       Make sure it's published to the web as CSV (File → Share → Publish to web).</div>`;
   }
 }
 
-load();
+function switchTab(tabKey) {
+  if (tabKey === activeTab) return;
+  activeTab = tabKey;
+  document.querySelectorAll(".tab").forEach(t => {
+    t.classList.toggle("active", t.dataset.tab === tabKey);
+  });
+  document.getElementById("search").value = "";
+  buildHeader();
+  buildSortDropdown();
+  syncControls();
+  loadActiveTab();
+}
+
+/* ============================================================
+   Init
+   ============================================================ */
+function init() {
+  buildHeader();
+  buildSortDropdown();
+  syncControls();
+
+  document.getElementById("search").addEventListener("input", render);
+
+  document.getElementById("sortMetric").addEventListener("change", (e) => {
+    sortState[activeTab].key = e.target.value;
+    render();
+  });
+
+  document.getElementById("dirToggle").addEventListener("click", () => {
+    sortState[activeTab].dir *= -1;
+    syncControls();
+    render();
+  });
+
+  document.querySelectorAll(".tab").forEach(tabEl => {
+    tabEl.addEventListener("click", () => switchTab(tabEl.dataset.tab));
+  });
+
+  loadActiveTab();
+  refreshTimer = setInterval(() => loadActiveTab({ silent: true }), REFRESH_MS);
+}
+
+init();
 </script>
 </body>
 </html>
