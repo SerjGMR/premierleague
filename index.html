@@ -67,6 +67,7 @@
   .col-narrow{ flex:0.9; text-align:right; }
   .col-mid{ flex:1; text-align:right; }
   .col-wide{ flex:1.7; text-align:right; }
+  .col-tiny{ flex:0.7; text-align:right; }
 
   /* ---- data rows ---- */
   .row{
@@ -204,7 +205,7 @@
     .market-name{ font-size:15px; }
     .market-sub{ font-size:12px; }
 
-    .col-narrow, .col-mid, .col-wide{
+    .col-narrow, .col-mid, .col-wide, .col-tiny{
       width:100%;
       display:flex;
       justify-content:space-between;
@@ -213,7 +214,7 @@
       font-size:14px;
       padding:2px 0;
     }
-    .col-narrow::before, .col-mid::before, .col-wide::before{
+    .col-narrow::before, .col-mid::before, .col-wide::before, .col-tiny::before{
       content: attr(data-label);
       color:var(--muted);
       font-size:13px;
@@ -235,6 +236,7 @@
 <div class="tabs" id="tabs">
   <div class="tab active" data-tab="positions">My Positions</div>
   <div class="tab" data-tab="edge">Market Edge</div>
+  <div class="tab" data-tab="probabilities">My Probabilities</div>
 </div>
 
 <div class="controls">
@@ -260,6 +262,7 @@
    ============================================================ */
 const POSITIONS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEDZn3nCmmlg-m0mkBlMX2VZ2At99ZEPa-s88XTuQGnhJqBRq0-ETFVEK6FLXdcH8uPCHI6HAgweeL/pub?gid=437407389&single=true&output=csv";
 const EDGE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEDZn3nCmmlg-m0mkBlMX2VZ2At99ZEPa-s88XTuQGnhJqBRq0-ETFVEK6FLXdcH8uPCHI6HAgweeL/pub?gid=1149386090&single=true&output=csv";
+const PROBABILITIES_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEDZn3nCmmlg-m0mkBlMX2VZ2At99ZEPa-s88XTuQGnhJqBRq0-ETFVEK6FLXdcH8uPCHI6HAgweeL/pub?gid=360818071&single=true&output=csv";
 
 const REFRESH_MS = 30000; // "live updating" refresh interval
 
@@ -509,6 +512,59 @@ const TABS = {
         <div class="col col-mid" data-label="Edge %"><span class="val ${edgeUp ? 'pos-text' : 'neg-text'}">${fmtPct(r.EdgeVal)}</span></div>
       `;
     }
+  },
+
+  probabilities: {
+    csvUrl: PROBABILITIES_CSV_URL,
+    searchPlaceholder: "Filter by team…",
+    headerCols: [
+      { key: "Team",        label: "Market",      cls: "col-market" },
+      { key: "Title",       label: "Title",       cls: "col-tiny" },
+      { key: "Top 2",       label: "Top 2",       cls: "col-tiny" },
+      { key: "Top 4",       label: "Top 4",       cls: "col-tiny" },
+      { key: "Top 5",       label: "Top 5",       cls: "col-tiny" },
+      { key: "Top 6",       label: "Top 6",       cls: "col-tiny" },
+      { key: "Top 10",      label: "Top 10",      cls: "col-tiny" },
+      { key: "Relegation",  label: "Relegation",  cls: "col-tiny" },
+      { key: "Last Place",  label: "Last Place",  cls: "col-tiny" },
+    ],
+    sortOptions: [
+      { value: "Title",      label: "Title" },
+      { value: "Top 2",      label: "Top 2" },
+      { value: "Top 4",      label: "Top 4" },
+      { value: "Top 5",      label: "Top 5" },
+      { value: "Top 6",      label: "Top 6" },
+      { value: "Top 10",     label: "Top 10" },
+      { value: "Relegation", label: "Relegation" },
+      { value: "Last Place", label: "Last Place" },
+    ],
+    defaultSort: { key: "Title", dir: -1 },
+    parseRows(table) {
+      const headers = table[0].map(h => h.trim());
+      return table.slice(1).map(r => {
+        const obj = {};
+        headers.forEach((h, i) => obj[h] = (r[i] || "").trim());
+        const row = { Team: obj["Team"] || "" };
+        headers.slice(1).forEach(h => { row[h] = toNumber(obj[h]); });
+        return row;
+      });
+    },
+    matchesFilter(row, q) {
+      return row.Team.toLowerCase().includes(q);
+    },
+    renderRow(r) {
+      const cols = ["Title", "Top 2", "Top 4", "Top 5", "Top 6", "Top 10", "Relegation", "Last Place"];
+      return `
+        <div class="col col-market">
+          ${avatarHTML(r.Team)}
+          <div class="market-info">
+            <div class="market-name">${r.Team}</div>
+            <div class="market-sub">English Premier League</div>
+          </div>
+        </div>
+        ${cols.map(c => `<div class="col col-tiny" data-label="${c}"><span class="val">${fmtPct(r[c])}</span></div>`).join("")}
+      `;
+    }
   }
 };
 
@@ -516,8 +572,8 @@ const TABS = {
    State + shared render/sort/filter engine
    ============================================================ */
 let activeTab = "positions";
-let cache = {};        // { positions: [...], edge: [...] }
-let sortState = {};     // { positions: {key,dir}, edge: {key,dir} }
+let cache = {};        // { positions: [...], edge: [...], probabilities: [...] }
+let sortState = {};     // { positions: {key,dir}, edge: {key,dir}, probabilities: {key,dir} }
 let refreshTimer = null;
 
 Object.keys(TABS).forEach(t => { sortState[t] = { ...TABS[t].defaultSort }; });
