@@ -446,19 +446,22 @@ const TABS = {
     csvUrl: EDGE_CSV_URL,
     searchPlaceholder: "Filter by team or contract…",
     headerCols: [
-      { key: "Team",      label: "Market",       cls: "col-market" },
-      { key: "EntryVal",  label: "Entry",        cls: "col-mid" },
-      { key: "ChanceVal", label: "Model Chance", cls: "col-mid" },
-      { key: "EdgeVal",   label: "Edge %",       cls: "col-mid" },
+      { key: "Team",       label: "Market",                       cls: "col-market" },
+      { key: "EntryVal",   label: "Current Polymarket Ask/Bid",   cls: "col-mid" },
+      { key: "VolumeVal",  label: "Volume",                       cls: "col-mid" },
+      { key: "ChanceVal",  label: "Model Chance",                 cls: "col-mid" },
+      { key: "EdgeVal",    label: "Edge %",                       cls: "col-mid" },
     ],
     sortOptions: [
       { value: "EdgeVal",   label: "Edge %" },
       { value: "ChanceVal", label: "Model Chance" },
       { value: "EntryVal",  label: "Entry Price" },
+      { value: "VolumeVal", label: "Volume" },
     ],
     defaultSort: { key: "EdgeVal", dir: -1 },
-    // This sheet's columns have no header names for I/J/K, so we read by
-    // fixed position: A Team, B Contract, C Chance, D Bid, F Ask, J Edge, K Over/Under.
+    // This sheet's columns have no header names for E/I/J/K, so we read by
+    // fixed position: A Team, B Contract, C Chance, D Bid, E Bid Volume,
+    // F Ask, G Ask Volume, J Edge, K Over/Under.
     parseRows(table) {
       return table.slice(1)
         .filter(r => (r[0] || "").trim() !== "")
@@ -467,7 +470,9 @@ const TABS = {
           const contract = (r[1] || "").trim();
           const chance = toNumber(r[2]);
           const bid = toNumber(r[3]);
+          const bidVolume = toNumber(r[4]);
           const ask = toNumber(r[5]);
+          const askVolume = toNumber(r[6]);
           const edge = toNumber(r[9]);
           const overUnder = (r[10] || "").trim();
           const isOver = overUnder.toLowerCase() === "over";
@@ -477,6 +482,7 @@ const TABS = {
             OverUnder: overUnder,
             ChanceVal: chance,
             EntryVal: isOver ? ask : bid,
+            VolumeVal: isOver ? askVolume : bidVolume,
             EdgeVal: edge,
           };
         });
@@ -497,7 +503,8 @@ const TABS = {
             <div class="market-sub">English Premier League &nbsp;${contractPhrase(r.Contract)}</div>
           </div>
         </div>
-        <div class="col col-mid" data-label="Entry"><span class="val">${fmtCents(r.EntryVal)}</span></div>
+        <div class="col col-mid" data-label="Current Polymarket Ask/Bid"><span class="val">${fmtCents(r.EntryVal)}</span></div>
+        <div class="col col-mid" data-label="Volume"><span class="val">${fmtMoney(r.VolumeVal)}</span></div>
         <div class="col col-mid" data-label="Model Chance"><span class="val">${fmtPct(r.ChanceVal)}</span></div>
         <div class="col col-mid" data-label="Edge %"><span class="val ${edgeUp ? 'pos-text' : 'neg-text'}">${fmtPct(r.EdgeVal)}</span></div>
       `;
